@@ -3,7 +3,7 @@ services:
     image: nginx:latest # Using the default Nginx image with custom configuration.
     volumes:
       # Mount the application code for live updates
-      - ./laravel:/var/www
+      - ./laravel/:/var/www
       # Mount the Nginx configuration file
       - ./docker/development/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
@@ -24,26 +24,23 @@ services:
       dockerfile: ./docker/common/php-fpm/Dockerfile
       target: development
       args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        XDEBUG_ENABLED: ${XDEBUG_ENABLED:-true}
+        UID: ${UID}
+        GID: ${GID}
+        XDEBUG_ENABLED: ${XDEBUG_ENABLED}
         XDEBUG_MODE: develop,coverage,debug,profile
-        XDEBUG_HOST: ${XDEBUG_HOST:-host.docker.internal}
-        XDEBUG_IDE_KEY: ${XDEBUG_IDE_KEY:-DOCKER}
+        XDEBUG_HOST: ${XDEBUG_HOST}
+        XDEBUG_IDE_KEY: ${XDEBUG_IDE_KEY}
         XDEBUG_LOG: /dev/stdout
         XDEBUG_LOG_LEVEL: 0
-    env_file:
-      # Load the environment variables from the Laravel application
-      - .env
-    user: "${UID:-1000}:${GID:-1000}"
+    user: "${UID}:${GID}"
     volumes:
       # Mount the application code for live updates
-      - ./larvel:/var/www
+      - ./laravel/:/var/www
     networks:
       - laravel-development
     depends_on:
-      postgres:
-        condition: service_started  # Wait for postgres to start
+      mysql:
+        condition: service_started  # Wait for mysql to start
 
   workspace:
    # For the workspace service, we will also create a custom image to install and setup all the necessary stuff.
@@ -51,33 +48,41 @@ services:
       context: .
       dockerfile: ./docker/development/workspace/Dockerfile
       args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        XDEBUG_ENABLED: ${XDEBUG_ENABLED:-true}
+        UID: ${UID}
+        GID: ${GID}
+        XDEBUG_ENABLED: ${XDEBUG_ENABLED}
         XDEBUG_MODE: develop,coverage,debug,profile
-        XDEBUG_HOST: ${XDEBUG_HOST:-host.docker.internal}
-        XDEBUG_IDE_KEY: ${XDEBUG_IDE_KEY:-DOCKER}
+        XDEBUG_HOST: ${XDEBUG_HOST}
+        XDEBUG_IDE_KEY: ${XDEBUG_IDE_KEY}
         XDEBUG_LOG: /dev/stdout
         XDEBUG_LOG_LEVEL: 0
     tty: true  # Enables an interactive terminal
     stdin_open: true  # Keeps standard input open for 'docker exec'
-    env_file:
-      - .env
     volumes:
-      - ./laravel:/var/www
+      - ./laravel/:/var/www
     networks:
       - laravel-development
 
-  postgres:
-    image: postgres:16
+  mysql:
+    image: mysql:8.0
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${DB_PORT}:3306"
     environment:
-      - POSTGRES_DB=app
-      - POSTGRES_USER=laravel
-      - POSTGRES_PASSWORD=secret
+      MYSQL_ROOT_PASSWORD: root_secret
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - postgres-data-development:/var/lib/postgresql/data
+      - mysql-data-development:/var/lib/mysql
+    networks:
+      - laravel-development
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    ports:
+      - ${DBMS_PORT}:80
+    environment:
+      - PMA_ARBITRARY=1
     networks:
       - laravel-development
 
@@ -90,4 +95,4 @@ networks:
   laravel-development:
 
 volumes:
-  postgres-data-development:
+  mysql-data-development:
